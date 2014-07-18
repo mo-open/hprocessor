@@ -3,6 +3,7 @@ package org.mds.hprocessor.memcache;
 import com.google.common.base.Preconditions;
 import org.mds.hprocessor.processor.Processor;
 import org.mds.hprocessor.processor.ProcessorBatchHandler;
+import org.mds.hprocessor.processor.ProcessorHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,8 +21,30 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
     protected final static int DEFAULT_BATCH_SIZE = 256;
     protected final static int MIN_BATCH_SIZE = 16;
     protected Processor<GetObject> getProcessor;
+    protected Processor<CallbackObject> callbackProcessor;
     protected MemcacheGetter getter;
     protected MemcacheCache memcacheCache;
+
+    protected static class CallbackObject {
+        List<GetObject> objects;
+        Map<String, Object> result;
+
+        public CallbackObject(List<GetObject> objects, Map<String, Object> result) {
+            this.objects = objects;
+            this.result = result;
+        }
+
+        public void release() {
+            if (this.objects != null) {
+                this.objects.clear();
+                this.objects = null;
+            }
+            if (this.result != null) {
+                this.result.clear();
+                this.result = null;
+            }
+        }
+    }
 
     protected class GetObject {
         public GetObject(String key, int retryCount, GetCallback callback) {
@@ -43,6 +66,11 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
             return getTimeUnit.convert(System.currentTimeMillis() - submitTime,
                     TimeUnit.MILLISECONDS) > getTimeout;
         }
+
+        public void release() {
+            this.key = null;
+            this.callback = null;
+        }
     }
 
     private MemcacheGetProcessor() {
@@ -52,10 +80,11 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
         return new Builder();
     }
 
-    public static class Builder extends ProcessorBuilder<GetObject, Builder, MemcacheGetProcessor> {
+    public static class Builder extends ProcessorBuilder<GetObject, CallbackObject, Builder, MemcacheGetProcessor> {
         int batchSize = DEFAULT_BATCH_SIZE;
         MemcacheGetter[] getters;
         MemcacheCache memcacheCache;
+        int callbackWorkers = 4;
 
         protected Builder() {
         }
@@ -107,11 +136,59 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
                 memcacheGetProcessor.memcacheCache = this.memcacheCache;
             }
             Processor.BatchBuilder batchBuilder = this.builder();
+            Processor.SingleBuilder callbackProcessorBuilder = this.callbackBuilder();
             if (batchBuilder != null) {
                 memcacheGetProcessor.getProcessor = batchBuilder.addNext(this.batchSize, handlers).build();
+                memcacheGetProcessor.callbackProcessor = callbackProcessorBuilder
+                        .addNext(this.callbackWorkers, new CallbackProcessorHandler(memcacheGetProcessor))
+                        .build();
             }
 
             return memcacheGetProcessor;
+        }
+    }
+
+    private static class CallbackProcessorHandler implements ProcessorHandler<CallbackObject> {
+        private MemcacheGetProcessor memcacheGetProcessor;
+
+        public CallbackProcessorHandler(MemcacheGetProcessor memcacheGetProcessor) {
+            this.memcacheGetProcessor = memcacheGetProcessor;
+        }
+
+        @Override
+        public void process(CallbackObject object) {
+            if (object.result == null) {
+                object.release();
+                return;
+            }
+            for (GetObject getObject : object.objects) {
+                Object value = null;
+                try {
+                    if (object.result != null)
+                        value = object.result.get(getObject.key);
+                    if (value == null) {
+                        if (getObject.isTimeout()) {
+                            if (getObject.callback != null) {
+                                getObject.callback.timeout(getObject.key);
+                            }
+                        } else if (getObject.allowRetry()) {
+                            this.memcacheGetProcessor.submit(getObject);
+                            continue;
+                        } else if (getObject.callback != null) {
+                            getObject.callback.handleNull(getObject.key);
+                        }
+                    } else if (getObject.callback != null) {
+                        if (this.memcacheGetProcessor.memcacheCache != null) {
+                            this.memcacheGetProcessor.memcacheCache.cache(getObject.key, value);
+                        }
+                        getObject.callback.handle(getObject.key, value);
+                    }
+                    getObject.release();
+                } catch (Exception ex) {
+                    log.warn("Failed to handle the result of key:{}:{} ", getObject.key, ex);
+                }
+            }
+            object.release();
         }
     }
 
@@ -134,26 +211,10 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
             try {
                 result = this.memcacheGetter.getBulk(keys);
             } finally {
-                for (GetObject getObject : objects) {
-                    Object value = null;
-                    if (result != null)
-                        value = result.get(getObject.key);
-                    if (value == null) {
-                        if (getObject.isTimeout()) {
-                            if (getObject.callback != null) {
-                                getObject.callback.timeout(getObject.key);
-                            }
-                        } else if (getObject.allowRetry()) {
-                            this.memcacheGetProcessor.submit(getObject);
-                        } else if (getObject.callback != null) {
-                            getObject.callback.handleNull(getObject.key);
-                        }
-                    } else if (getObject.callback != null) {
-                        if (this.memcacheGetProcessor.memcacheCache != null) {
-                            this.memcacheGetProcessor.memcacheCache.cache(getObject.key, value);
-                        }
-                        getObject.callback.handle(getObject.key, value);
-                    }
+                if (result != null) {
+                    this.memcacheGetProcessor.callbackProcessor.submit(new CallbackObject(objects, result));
+                } else {
+                    objects.clear();
                 }
             }
         }

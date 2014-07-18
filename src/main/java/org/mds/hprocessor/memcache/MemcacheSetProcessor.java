@@ -2,6 +2,8 @@ package org.mds.hprocessor.memcache;
 
 import com.google.common.base.Preconditions;
 import org.mds.hprocessor.processor.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
@@ -9,11 +11,12 @@ import java.util.Random;
  * @author Randall.mo
  */
 public class MemcacheSetProcessor extends MemcacheProcessor {
-
+    private static final Logger log = LoggerFactory.getLogger(MemcacheSetProcessor.class);
     private Processor<SetObject> setterProcessor;
+    protected Processor<SetObject> callbackProcessor;
     private MemcacheSetter memcacheSetter;
 
-    private class SetObject {
+    private static class SetObject {
         public SetObject(String key, int exp, Object value) {
             this(key, exp, value, null);
         }
@@ -28,14 +31,21 @@ public class MemcacheSetProcessor extends MemcacheProcessor {
         String key;
         int exp;
         Object value;
+        boolean completed = false;
         SetCallback callback;
+
+        public void release() {
+            this.key = null;
+            this.value = null;
+            this.callback = null;
+        }
     }
 
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    public static class Builder extends ProcessorBuilder<SetObject, Builder, MemcacheSetProcessor> {
+    public static class Builder extends ProcessorBuilder<SetObject, SetObject, Builder, MemcacheSetProcessor> {
         MemcacheSetter[] setters;
         boolean async = true;
 
@@ -71,14 +81,18 @@ public class MemcacheSetProcessor extends MemcacheProcessor {
             MemcacheSetProcessor memcacheSetProcessor = new MemcacheSetProcessor();
             ProcessorHandler<SetObject>[] handlers = new ProcessorHandler[setters.length];
             for (int i = 0; i < setters.length; i++) {
-                handlers[i] = new SetProcessorHandler(setters[i],this.async);
+                handlers[i] = new SetProcessorHandler(setters[i], memcacheSetProcessor, this.async);
             }
             memcacheSetProcessor.memcacheSetter = setters[0];
 
             this.setTimeout(memcacheSetProcessor);
             Processor.BatchBuilder batchBuilder = this.builder();
+            Processor.SingleBuilder callbackProcessorBuilder = this.callbackBuilder();
             if (batchBuilder != null) {
                 memcacheSetProcessor.setterProcessor = batchBuilder.addNext(handlers).build();
+                memcacheSetProcessor.callbackProcessor = callbackProcessorBuilder
+                        .addNext(this.callbackWorkers, new CallbackProcessorHandler())
+                        .build();
             }
 
             return memcacheSetProcessor;
@@ -88,11 +102,31 @@ public class MemcacheSetProcessor extends MemcacheProcessor {
     private MemcacheSetProcessor() {
     }
 
+    private static class CallbackProcessorHandler implements ProcessorHandler<SetObject> {
+        @Override
+        public void process(SetObject object) {
+            if (object.callback == null) {
+                object.release();
+                return;
+            }
+            if (object.completed) {
+                object.callback.complete(object.key);
+            } else {
+                object.callback.fail(object.key);
+            }
+            object.release();
+        }
+    }
+
     private static class SetProcessorHandler implements ProcessorHandler<SetObject> {
         private MemcacheSetter memcacheSetter;
+        private MemcacheSetProcessor memcacheSetProcessor;
         private boolean async = true;
 
-        public SetProcessorHandler(MemcacheSetter memcacheSetter, boolean async) {
+        public SetProcessorHandler(MemcacheSetter memcacheSetter,
+                                   MemcacheSetProcessor memcacheSetProcessor,
+                                   boolean async) {
+            this.memcacheSetProcessor = memcacheSetProcessor;
             this.memcacheSetter = memcacheSetter;
             this.async = async;
         }
@@ -105,12 +139,14 @@ public class MemcacheSetProcessor extends MemcacheProcessor {
                 } else {
                     this.memcacheSetter.syncSet(object.key, object.exp, object.value);
                 }
-                if (object.callback != null) {
-                    object.callback.complete(object.key);
-                }
+                object.completed = true;
             } catch (Exception ex) {
+                log.warn("Failed to set memcache, key: {}, error:{}", object.key, ex);
+            } finally {
                 if (object.callback != null) {
-                    object.callback.fail(object.key);
+                    this.memcacheSetProcessor.callbackProcessor.submit(object);
+                } else {
+                    object.release();
                 }
             }
         }

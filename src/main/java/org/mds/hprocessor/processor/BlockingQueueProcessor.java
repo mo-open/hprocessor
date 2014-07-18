@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class BlockingQueueProcessor<T> implements Processor<T> {
     private static Logger log = LoggerFactory.getLogger(BlockingQueueProcessor.class);
     private static ExecutorService workerExecutor = Executors.newCachedThreadPool();
+    private String name = "BlockingQueueProcessor";
     private int bufferSize;
     private ProcessorWorker firstWorker;
 
@@ -58,7 +59,12 @@ public class BlockingQueueProcessor<T> implements Processor<T> {
     public static class Builder<T> extends BatchBuilder<T, Builder<T>, BlockingQueueProcessor<T>> {
         private List<ProcessorWorker<T>> workers = new ArrayList();
         private boolean useBucket = false;
+        private String processorName;
 
+        public Builder<T> setProcessorName(String name) {
+            this.processorName = name;
+            return this;
+        }
 
         public Builder<T> setUseBucket(boolean useBucket) {
             this.useBucket = useBucket;
@@ -90,6 +96,7 @@ public class BlockingQueueProcessor<T> implements Processor<T> {
                 throw new RuntimeException("Please add processor handler before build it.");
             }
             BlockingQueueProcessor<T> processor = new BlockingQueueProcessor();
+            processor.name = this.processorName;
             processor.firstWorker = this.workers.get(0);
             processor.bufferSize = this.bufferSize;
             ProcessorWorker nextWorker = null;
@@ -166,7 +173,7 @@ public class BlockingQueueProcessor<T> implements Processor<T> {
                                     this.nextWorker.submit(e);
                                 }
                             }
-                            events.clear();
+                            events = new ArrayList();
                         }
                         event = null;
                     } else {
@@ -177,7 +184,7 @@ public class BlockingQueueProcessor<T> implements Processor<T> {
                                     this.nextWorker.submit(e);
                                 }
                             }
-                            events.clear();
+                            events = new ArrayList();
                         }
                         event = blockingQueue.take();
                     }
