@@ -84,7 +84,6 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
         int batchSize = DEFAULT_BATCH_SIZE;
         MemcacheGetter[] getters;
         MemcacheCache memcacheCache;
-        int callbackWorkers = 4;
 
         protected Builder() {
         }
@@ -232,7 +231,20 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
         return value;
     }
 
+    private boolean getFromCache(String key, GetCallback callback) {
+        Object value = null;
+        if (this.memcacheCache != null) {
+            value = this.memcacheCache.get(key);
+        }
+        if (value != null && callback != null) {
+            callback.handle(key, value);
+            return true;
+        }
+        return false;
+    }
+
     public void get(String key, GetCallback callback) {
+        if (getFromCache(key, callback)) return;
         if (!this.getProcessor.trySubmit(new GetObject(key, 0, callback),
                 this.submitTimeout, this.submitTimeUnit)) {
             if (callback != null) {
@@ -242,6 +254,7 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
     }
 
     public void get(String key, int retryCount, GetCallback callback) {
+        if (getFromCache(key, callback)) return;
         if (!this.getProcessor.trySubmit(new GetObject(key, retryCount, callback),
                 this.submitTimeout, this.submitTimeUnit)) {
             if (callback != null) {

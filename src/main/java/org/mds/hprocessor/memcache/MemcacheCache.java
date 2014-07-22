@@ -1,5 +1,6 @@
 package org.mds.hprocessor.memcache;
 
+import com.google.common.base.Preconditions;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class MemcacheCache {
     private List<CacheFilter> filters = new ArrayList<>();
 
     public MemcacheCache(CacheConfig cacheConfig) {
+        Preconditions.checkArgument(cacheConfig != null, "cacheConfig can not be null");
         this.cacheConfig = cacheConfig;
         this.mainExecutor = Executors.newScheduledThreadPool(1);
         this.syncExecutor = Executors.newFixedThreadPool(cacheConfig.getSyncThreads());
@@ -42,8 +44,15 @@ public class MemcacheCache {
         }, 0, cacheConfig.getSyncInterval(), TimeUnit.MILLISECONDS);
     }
 
-    public void setMemcacheGetter(MemcacheGetter memcacheGetter) {
+    public MemcacheCache setMemcacheGetter(MemcacheGetter memcacheGetter) {
         this.memcacheGetter = memcacheGetter;
+        return this;
+    }
+
+    public MemcacheCache setCacheFilter(CacheFilter cacheFilter) {
+        Preconditions.checkArgument(cacheFilter != null, "cacheFilter can not be null");
+        this.filters.add(cacheFilter);
+        return this;
     }
 
     public Object get(String key) {
@@ -54,7 +63,14 @@ public class MemcacheCache {
             }
 
             if (isContained) {
-                return this.localCache.get(key);
+                Object value = this.localCache.get(key);
+                for (CacheFilter filter : this.filters) {
+                    if (!filter.filter(key, value)) {
+                        this.keyMap.put(key, 0L);
+                        break;
+                    }
+                }
+                return value;
             }
         }
 
@@ -62,17 +78,15 @@ public class MemcacheCache {
     }
 
     public void cache(String key, Object value) {
+        if (value == null || !this.cacheConfig.isCachedInTime()) return;
         for (CacheFilter filter : this.filters) {
             if (!filter.filter(key, value)) {
-                this.keyMap.put(key, 0L);
                 return;
             }
         }
-        if (value != null && this.cacheConfig.isCachedInTime()) {
-            if (this.keyMap.containsKey(key)) {
-                this.localCache.put(key, value);
-            }
-        }
+
+        this.keyMap.put(key, System.currentTimeMillis());
+        this.localCache.put(key, value);
     }
 
     public void close() {
