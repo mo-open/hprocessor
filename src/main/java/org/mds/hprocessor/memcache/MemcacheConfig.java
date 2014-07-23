@@ -4,6 +4,10 @@ package org.mds.hprocessor.memcache;
  * Created by Randall.mo on 14-7-16.
  */
 public class MemcacheConfig {
+    private String cacheName="Default";
+    private String cacheZkName="cache-manager";
+    private String zkHosts;
+    private String zkRoot;
     private String servers;
     private int connections = 1;
     private int compressionThreshold = 1024;
