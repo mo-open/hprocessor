@@ -8,10 +8,12 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.testng.Assert.*;
 
 /**
@@ -21,7 +23,7 @@ public class MemcacheGetProcessorTest {
     private static final Logger log = LoggerFactory.getLogger(MemcacheGetProcessorTest.class);
     private static Map<String, Object> cache = new HashMap();
 
-    private static class TestMemcacheGetter implements MemcacheGetter {
+    private static class TestMemcacheGetter extends MemCacheAdapter {
 
         @Override
         public Object get(String key) {
@@ -30,7 +32,7 @@ public class MemcacheGetProcessorTest {
         }
 
         @Override
-        public Map<String, Object> getBulk(Collection<String> keys) {
+        public Map<String, Object> getMulti(Set<String> keys) {
             Map<String, Object> values = new HashMap();
             for (String key : keys) {
                 values.put(key, cache.get(key));
@@ -41,7 +43,7 @@ public class MemcacheGetProcessorTest {
 
     private static class TimeoutGetter extends TestMemcacheGetter {
         @Override
-        public Map<String, Object> getBulk(Collection<String> keys) {
+        public Map<String, Object> getMulti(Set<String> keys) {
             try {
                 Thread.sleep(1000);
             } catch (Exception ex) {
@@ -139,9 +141,9 @@ public class MemcacheGetProcessorTest {
                 .build();
         assertNull(getProcessor.get("a"));
         cache.put("a", "1");
-        try{
+        try {
             Thread.sleep(150);
-        }catch (Exception ex){
+        } catch (Exception ex) {
 
         }
         assertNotNull(getProcessor.get("a"));
@@ -156,11 +158,11 @@ public class MemcacheGetProcessorTest {
                 .setBatchSize(10).setGetters(new TestMemcacheGetter[]{new TestMemcacheGetter()})
                 .setCache(memcacheCache)
                 .build();
-        getProcessor.get("a",null);
+        getProcessor.get("a", null);
         cache.put("a", "1");
-        try{
+        try {
             Thread.sleep(250);
-        }catch (Exception ex){
+        } catch (Exception ex) {
 
         }
         assertNotNull(getProcessor.get("a"));

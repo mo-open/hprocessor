@@ -15,16 +15,16 @@ public class XMemCache implements MemCache {
     private static Logger log = LoggerFactory.getLogger(XMemCache.class);
     private MemcachedClient memcachedClient;
 
-    public static XMemCache[] build(MemcacheConfig config, int count) {
+    public static XMemCache[] build(MemcachedClient memcachedClient, int count) {
         XMemCache[] caches = new XMemCache[count];
         for (int i = 0; i < count; i++) {
-            caches[i] = new XMemCache(config);
+            caches[i] = new XMemCache(memcachedClient);
         }
         return caches;
     }
 
-    public XMemCache(MemcacheConfig config) {
-        this.memcachedClient = MemcacheClientUtils.createXMemcachedClient(config);
+    public XMemCache(MemcachedClient memcachedClient) {
+        this.memcachedClient = memcachedClient;
     }
 
     @Override

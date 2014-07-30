@@ -1,5 +1,6 @@
 package org.mds.hprocessor.memcache;
 
+import net.rubyeye.xmemcached.MemcachedClient;
 import org.glassfish.grizzly.memcached.MemcachedCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,14 @@ import java.util.Set;
 public class GrizzlyMemCache implements MemCache {
     private static Logger log = LoggerFactory.getLogger(GrizzlyMemCache.class);
     private MemcachedCache<String, Object> cache;
+
+    public static GrizzlyMemCache[] build(MemcachedCache<String, Object> cache, int count) {
+        GrizzlyMemCache[] caches = new GrizzlyMemCache[count];
+        for (int i = 0; i < count; i++) {
+            caches[i] = new GrizzlyMemCache(cache);
+        }
+        return caches;
+    }
 
     public GrizzlyMemCache(MemcachedCache<String, Object> cache) {
         this.cache = cache;

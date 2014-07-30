@@ -14,16 +14,16 @@ public class SpyMemCache implements MemCache {
     private static Logger log = LoggerFactory.getLogger(SpyMemCache.class);
     private MemcachedClient memcachedClient;
 
-    public static SpyMemCache[] build(MemcacheConfig config, int count) {
+    public static SpyMemCache[] build(MemcachedClient memcachedClient, int count) {
         SpyMemCache[] caches = new SpyMemCache[count];
         for (int i = 0; i < count; i++) {
-            caches[i] = new SpyMemCache(config);
+            caches[i] = new SpyMemCache(memcachedClient);
         }
         return caches;
     }
 
     public SpyMemCache(MemcachedClient memcachedClient) {
-        this.memcachedClient =memcachedClient;
+        this.memcachedClient = memcachedClient;
     }
 
     @Override

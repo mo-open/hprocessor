@@ -5,9 +5,7 @@ import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,7 +19,7 @@ public class MemcacheCache {
     private ScheduledExecutorService mainExecutor;
     private ExecutorService syncExecutor;
     private CacheConfig cacheConfig;
-    private volatile MemcacheGetter memcacheGetter;
+    private volatile MemCache memcacheGetter;
     private volatile int currentKeysSize;
     private AtomicInteger timeoutCounter = new AtomicInteger(0);
     private int maxCachedCount;
@@ -44,7 +42,7 @@ public class MemcacheCache {
         }, 0, cacheConfig.getSyncInterval(), TimeUnit.MILLISECONDS);
     }
 
-    public MemcacheCache setMemcacheGetter(MemcacheGetter memcacheGetter) {
+    public MemcacheCache setMemcacheGetter(MemCache memcacheGetter) {
         this.memcacheGetter = memcacheGetter;
         return this;
     }
@@ -111,7 +109,7 @@ public class MemcacheCache {
 
             this.currentKeysSize = this.keyMap.size();
             if (this.currentKeysSize > 0) {
-                List<String> keys = new ArrayList<>();
+                Set<String> keys = new HashSet<>();
                 for (Map.Entry<String, Long> entry : keyMap.entrySet()) {
                     if (System.currentTimeMillis() - entry.getValue() > this.cacheConfig.getMaxCachedTime()) {
                         removeCacheItem(entry.getKey());
@@ -121,7 +119,7 @@ public class MemcacheCache {
                     if (keys.size() == this.cacheConfig.getSyncBulkSize()) {
                         counter.addAndGet(this.cacheConfig.getSyncBulkSize());
                         tasks.add(this.syncExecutor.submit(new SyncTask(keys)));
-                        keys = new ArrayList<>();
+                        keys = new HashSet<>();
                     }
                 }
                 if (!keys.isEmpty()) {
@@ -149,16 +147,16 @@ public class MemcacheCache {
     }
 
     private class SyncTask implements Callable {
-        private List<String> keys;
+        private Set<String> keys;
 
-        public SyncTask(List<String> keys) {
+        public SyncTask(Set<String> keys) {
             this.keys = keys;
         }
 
         @Override
         public Integer call() {
             try {
-                Map<String, Object> values = MemcacheCache.this.memcacheGetter.getBulk(this.keys);
+                Map<String, Object> values = MemcacheCache.this.memcacheGetter.getMulti(this.keys);
                 localCache.putAll(values);
                 this.keys.removeAll(values.keySet());
                 for (String key : this.keys) {

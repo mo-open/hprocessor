@@ -7,6 +7,7 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.testng.Assert.*;
 
@@ -17,7 +18,7 @@ public class MemcacheCacheTest {
     private static final Logger log = LoggerFactory.getLogger(MemcacheCacheTest.class);
     private static Map<String, Object> cache = new HashMap();
 
-    private static class TestMemcacheGetter implements MemcacheGetter {
+    private static class TestMemcacheGetter extends MemCacheAdapter {
 
         @Override
         public Object get(String key) {
@@ -26,7 +27,7 @@ public class MemcacheCacheTest {
         }
 
         @Override
-        public Map<String, Object> getBulk(Collection<String> keys) {
+        public Map<String, Object> getMulti(Set<String> keys) {
             Map<String, Object> values = new HashMap();
             for (String key : keys) {
                 values.put(key, cache.get(key));
@@ -40,7 +41,7 @@ public class MemcacheCacheTest {
         cache.put("b", "1");
         MemcacheCache memcacheCache = new MemcacheCache(
                 new CacheConfig().setCachedInTime(false).setSyncInterval(50));
-        MemcacheGetter memcacheGetter = new TestMemcacheGetter();
+        MemCache memcacheGetter = new TestMemcacheGetter();
         memcacheCache.setMemcacheGetter(memcacheGetter);
         assertNull(memcacheCache.get("b"));
 
@@ -57,7 +58,7 @@ public class MemcacheCacheTest {
     public void testCachedInTime() throws Exception {
         MemcacheCache memcacheCache = new MemcacheCache(
                 new CacheConfig().setCachedInTime(true));
-        MemcacheGetter memcacheGetter = new TestMemcacheGetter();
+        MemCache memcacheGetter = new TestMemcacheGetter();
         memcacheCache.setMemcacheGetter(memcacheGetter);
         assertNull(memcacheCache.get("a"));
         memcacheCache.cache("a", "1");
@@ -70,7 +71,7 @@ public class MemcacheCacheTest {
         cache.put("c", "1");
         MemcacheCache memcacheCache = new MemcacheCache(
                 new CacheConfig().setCachedInTime(false).setSyncInterval(50));
-        MemcacheGetter memcacheGetter = new TestMemcacheGetter();
+        MemCache memcacheGetter = new TestMemcacheGetter();
         memcacheCache.setMemcacheGetter(memcacheGetter);
         memcacheCache.setCacheFilter(new MemcacheCache.CacheFilter() {
             @Override

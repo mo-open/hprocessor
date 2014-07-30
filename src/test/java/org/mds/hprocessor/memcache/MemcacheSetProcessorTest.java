@@ -18,7 +18,7 @@ public class MemcacheSetProcessorTest {
     private static final Logger log = LoggerFactory.getLogger(MemcacheSetProcessorTest.class);
     private static Map<String, Object> cache = new HashMap();
 
-    private static class TestMemcacheSetter implements MemcacheSetter {
+    private static class TestMemcacheSetter extends MemCacheAdapter {
         CountDownLatch countDownLatch;
 
         public TestMemcacheSetter(CountDownLatch countDownLatch) {
@@ -40,7 +40,7 @@ public class MemcacheSetProcessorTest {
         }
     }
 
-    private static class TimeoutSetter implements MemcacheSetter {
+    private static class TimeoutSetter extends MemCacheAdapter {
 
         @Override
         public void set(String key, int exp, Object value) {
@@ -64,7 +64,7 @@ public class MemcacheSetProcessorTest {
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         MemcacheSetProcessor setProcessor = MemcacheSetProcessor.newBuilder()
                 .setBufferSize(10)
-                .setSetters(new MemcacheSetter[]{new TestMemcacheSetter(countDownLatch)})
+                .setSetters(new MemCache[]{new TestMemcacheSetter(countDownLatch)})
                 .build();
         setProcessor.set("1", 1000, "a");
         countDownLatch.await(3, TimeUnit.SECONDS);
@@ -75,7 +75,7 @@ public class MemcacheSetProcessorTest {
     public void testSyncSet() throws Exception {
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         MemcacheSetProcessor setProcessor = MemcacheSetProcessor.newBuilder()
-                .setSetters(new MemcacheSetter[]{new TestMemcacheSetter(countDownLatch)})
+                .setSetters(new MemCache[]{new TestMemcacheSetter(countDownLatch)})
                 .build();
         setProcessor.syncSet("2", 1000, "b");
         Assert.assertEquals(cache.get("2"), "b");
@@ -85,21 +85,16 @@ public class MemcacheSetProcessorTest {
     public void testSetCallback() throws Exception {
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         MemcacheSetProcessor setProcessor = MemcacheSetProcessor.newBuilder()
-                .setSetters(new MemcacheSetter[]{new TestMemcacheSetter(null)})
+                .setSetters(new MemCache[]{new TestMemcacheSetter(null)})
                 .build();
         setProcessor.set("1", 1000, "a", new MemcacheSetProcessor.SetCallback() {
             @Override
-            public void complete(String key) {
+            public void complete(String key, Object value) {
                 countDownLatch.countDown();
             }
 
             @Override
-            public void fail(String key) {
-
-            }
-
-            @Override
-            public void timeout(String key) {
+            public void timeout(String key, Object value) {
 
             }
         });
@@ -116,22 +111,17 @@ public class MemcacheSetProcessorTest {
                 .setAsync(false)
                 .setSubmitTimeout(100, TimeUnit.MILLISECONDS)
                 .setProcessorType(MemcacheProcessor.ProcessorType.QUEUE)
-                .setSetters(new MemcacheSetter[]{new TimeoutSetter()})
+                .setSetters(new MemCache[]{new TimeoutSetter()})
                 .build();
         MemcacheSetProcessor.SetCallback defaultCallback = new MemcacheSetProcessor.SetCallback() {
 
             @Override
-            public void complete(String key) {
+            public void complete(String key, Object value) {
 
             }
 
             @Override
-            public void fail(String key) {
-
-            }
-
-            @Override
-            public void timeout(String key) {
+            public void timeout(String key, Object value) {
 
             }
         };
@@ -145,17 +135,12 @@ public class MemcacheSetProcessorTest {
         setProcessor.set("4", 1000, "c", new MemcacheSetProcessor.SetCallback() {
 
             @Override
-            public void complete(String key) {
+            public void complete(String key, Object value) {
 
             }
 
             @Override
-            public void fail(String key) {
-
-            }
-
-            @Override
-            public void timeout(String key) {
+            public void timeout(String key, Object value) {
                 timeout.set(true);
                 countDownLatch.countDown();
             }

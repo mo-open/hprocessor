@@ -15,12 +15,15 @@ public abstract class MemcacheProcessor {
     protected final static int DEFAULT_CALLBACK_BUFSIZE = 1024 * 8;
     protected final static int DEFAULT_SUBMIT_TIMEOUT = 1000;
     protected final static int DEFAULT_GET_TIMEOUT = 3000;
+    protected final static int DEFAULT_SET_TIMEOUT = 3000;
     protected final static TimeUnit DEFAULT_TIMEUNIT = TimeUnit.MILLISECONDS;
 
     protected int submitTimeout = DEFAULT_SUBMIT_TIMEOUT;
     protected TimeUnit submitTimeUnit = DEFAULT_TIMEUNIT;
     protected int getTimeout = DEFAULT_GET_TIMEOUT;
     protected TimeUnit getTimeUnit = DEFAULT_TIMEUNIT;
+    protected int setTimeout = DEFAULT_SET_TIMEOUT;
+    protected TimeUnit setTimeUnit = DEFAULT_TIMEUNIT;
 
     public enum ProcessorType {
         QUEUE, DISRUPTOR;
@@ -37,6 +40,8 @@ public abstract class MemcacheProcessor {
         TimeUnit submitTimeUnit = DEFAULT_TIMEUNIT;
         int getTimeout = DEFAULT_GET_TIMEOUT;
         TimeUnit getTimeUnit = DEFAULT_TIMEUNIT;
+        int setTimeout = DEFAULT_SET_TIMEOUT;
+        TimeUnit setTimeUnit = DEFAULT_TIMEUNIT;
 
         public T setSubmitTimeout(int timeout, TimeUnit timeUnit) {
             this.submitTimeout = timeout;
@@ -47,6 +52,12 @@ public abstract class MemcacheProcessor {
         public T setGetTimeout(int timeout, TimeUnit timeUnit) {
             this.getTimeout = timeout;
             this.getTimeUnit = timeUnit;
+            return (T) this;
+        }
+
+        public T setSetTimeout(int timeout, TimeUnit timeUnit) {
+            this.setTimeout = timeout;
+            this.setTimeUnit = timeUnit;
             return (T) this;
         }
 
@@ -77,6 +88,8 @@ public abstract class MemcacheProcessor {
         protected void setTimeout(MemcacheProcessor memcacheProcessor) {
             memcacheProcessor.getTimeout = this.getTimeout;
             memcacheProcessor.getTimeUnit = this.getTimeUnit;
+            memcacheProcessor.setTimeout = this.setTimeout;
+            memcacheProcessor.setTimeUnit = this.setTimeUnit;
             memcacheProcessor.submitTimeout = this.submitTimeout;
             memcacheProcessor.submitTimeUnit = this.submitTimeUnit;
         }

@@ -7,10 +7,7 @@ import org.mds.hprocessor.processor.ProcessorHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -22,7 +19,7 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
     protected final static int MIN_BATCH_SIZE = 16;
     protected Processor<GetObject> getProcessor;
     protected Processor<CallbackObject> callbackProcessor;
-    protected MemcacheGetter getter;
+    protected MemCache getter;
     protected MemcacheCache memcacheCache;
 
     protected static class CallbackObject {
@@ -82,7 +79,7 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
 
     public static class Builder extends ProcessorBuilder<GetObject, CallbackObject, Builder, MemcacheGetProcessor> {
         int batchSize = DEFAULT_BATCH_SIZE;
-        MemcacheGetter[] getters;
+        MemCache[] getters;
         MemcacheCache memcacheCache;
 
         protected Builder() {
@@ -99,16 +96,16 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
             return this;
         }
 
-        public Builder setGetters(MemcacheGetter[] getters) {
+        public Builder setGetters(MemCache[] getters) {
             return this.setGetters(0, getters);
         }
 
-        public Builder setGetters(int workerCount, MemcacheGetter[] getters) {
+        public Builder setGetters(int workerCount, MemCache[] getters) {
             Preconditions.checkArgument(getters != null && getters.length > 0, "Getters can not be empty.");
             if (getters.length > workerCount) {
                 this.getters = getters;
             } else {
-                this.getters = new MemcacheGetter[workerCount];
+                this.getters = new MemCache[workerCount];
                 Random random = new Random();
                 for (int i = 0; i < getters.length; i++) {
                     this.getters[i] = getters[i];
@@ -156,10 +153,6 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
 
         @Override
         public void process(CallbackObject object) {
-            if (object.result == null) {
-                object.release();
-                return;
-            }
             for (GetObject getObject : object.objects) {
                 Object value = null;
                 try {
@@ -192,23 +185,25 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
     }
 
     private static class GetProcessorHandler implements ProcessorBatchHandler<GetObject> {
-        private MemcacheGetter memcacheGetter;
+        private MemCache memcacheGetter;
         private MemcacheGetProcessor memcacheGetProcessor;
 
-        public GetProcessorHandler(MemcacheGetter memcacheGetter, MemcacheGetProcessor memcacheGetProcessor) {
+        public GetProcessorHandler(MemCache memcacheGetter, MemcacheGetProcessor memcacheGetProcessor) {
             this.memcacheGetter = memcacheGetter;
             this.memcacheGetProcessor = memcacheGetProcessor;
         }
 
         @Override
         public void process(List<GetObject> objects) {
-            List<String> keys = new ArrayList();
+            Set<String> keys = new HashSet<>();
             for (GetObject getObject : objects) {
                 keys.add(getObject.key);
             }
             Map<String, Object> result = null;
             try {
-                result = this.memcacheGetter.getBulk(keys);
+                result = this.memcacheGetter.getMulti(keys);
+            } catch (Exception ex) {
+                log.warn("Exception in getMulti from memcache:" + ex);
             } finally {
                 if (result != null) {
                     this.memcacheGetProcessor.callbackProcessor.submit(new CallbackObject(objects, result));
@@ -263,8 +258,8 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
         }
     }
 
-    public interface GetCallback {
-        public void handle(String key, Object value);
+    public interface GetCallback<T> {
+        public void handle(String key, T value);
 
         public void timeout(String key);
 
