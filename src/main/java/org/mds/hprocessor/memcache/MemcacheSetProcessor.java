@@ -167,6 +167,7 @@ public class MemcacheSetProcessor extends MemcacheProcessor {
                     this.memcacheSetProcessor.submit(object);
                     return;
                 }
+                log.warn("Set timeout: " + this.memcacheSetProcessor.setTimeout + this.memcacheSetProcessor.setTimeUnit);
                 object.callback.timeout(object.key, object.value);
             }
             object.release();

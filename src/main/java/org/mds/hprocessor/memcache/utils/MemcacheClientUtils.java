@@ -1,4 +1,4 @@
-package org.mds.hprocessor.memcache;
+package org.mds.hprocessor.memcache.utils;
 
 import net.rubyeye.xmemcached.MemcachedClient;
 import net.rubyeye.xmemcached.XMemcachedClientBuilder;
@@ -9,6 +9,7 @@ import net.spy.memcached.AddrUtil;
 import net.spy.memcached.ConnectionFactoryBuilder;
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.FailureMode;
+import org.glassfish.grizzly.memcached.MemcachedCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,4 +76,6 @@ public class MemcacheClientUtils {
         }
         return null;
     }
+
+    public static MemcachedCache<String, String>
 }
