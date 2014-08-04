@@ -19,14 +19,6 @@ import org.slf4j.LoggerFactory;
 public class MemcacheClientUtils {
     protected final static Logger log = LoggerFactory.getLogger(MemcacheClientUtils.class);
 
-    public static MemcachedClient[] createXMemcachedClients(MemcacheConfig config, int count) {
-        MemcachedClient[] clients = new MemcachedClient[count];
-        for (int i = 0; i < count; i++) {
-            clients[i] = createXMemcachedClient(config);
-        }
-        return clients;
-    }
-
     public static MemcachedClient createXMemcachedClient(MemcacheConfig config) {
         try {
             XMemcachedClientBuilder builder = new XMemcachedClientBuilder(config.getServers());
@@ -77,5 +69,13 @@ public class MemcacheClientUtils {
         return null;
     }
 
-    public static MemcachedCache<String, String>
+    public static MemcachedCache<String, Object> createGrizzlyMemecache(GrizzlyMemcacheConfig memcacheConfig) {
+        try {
+            GrizzlyMemcacheManager.init(memcacheConfig);
+            return GrizzlyMemcacheManager.build(memcacheConfig.getCacheName());
+        } catch (Exception ex) {
+
+        }
+        return null;
+    }
 }

@@ -14,10 +14,10 @@ public class SpyMemCache implements MemCache {
     private static Logger log = LoggerFactory.getLogger(SpyMemCache.class);
     private MemcachedClient memcachedClient;
 
-    public static SpyMemCache[] build(MemcachedClient memcachedClient, int count) {
-        SpyMemCache[] caches = new SpyMemCache[count];
-        for (int i = 0; i < count; i++) {
-            caches[i] = new SpyMemCache(memcachedClient);
+    public static SpyMemCache[] build(MemcachedClient[] memcachedClients) {
+        SpyMemCache[] caches = new SpyMemCache[memcachedClients.length];
+        for (int i = 0; i < caches.length; i++) {
+            caches[i] = new SpyMemCache(memcachedClients[i]);
         }
         return caches;
     }

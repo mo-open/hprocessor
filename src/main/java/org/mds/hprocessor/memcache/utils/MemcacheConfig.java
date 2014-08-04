@@ -3,7 +3,7 @@ package org.mds.hprocessor.memcache.utils;
 /**
  * Created by Randall.mo on 14-7-16.
  */
-public class MemcacheConfig {
+public class MemcacheConfig<T extends MemcacheConfig<T>> {
     private String servers;
     private int connections = 1;
     private int compressionThreshold = 1024;
@@ -18,44 +18,45 @@ public class MemcacheConfig {
         return servers;
     }
 
-    public MemcacheConfig setServers(String servers) {
+    public T setServers(String servers) {
         this.servers = servers;
-        return this;
+        return (T)this;
     }
 
     public int getConnections() {
         return connections;
     }
 
-    public MemcacheConfig setConnections(int connections) {
+    public T setConnections(int connections) {
         this.connections = connections;
-        return this;
+        return (T)this;
     }
 
     public int getCompressionThreshold() {
         return compressionThreshold;
     }
 
-    public void setCompressionThreshold(int compressionThreshold) {
+    public T setCompressionThreshold(int compressionThreshold) {
         this.compressionThreshold = compressionThreshold;
+        return (T)this;
     }
 
     public int getConnectionTimeout() {
         return connectionTimeout;
     }
 
-    public MemcacheConfig setConnectionTimeout(int connectionTimeout) {
+    public T setConnectionTimeout(int connectionTimeout) {
         this.connectionTimeout = connectionTimeout;
-        return this;
+        return (T)this;
     }
 
     public int getOpTimeout() {
         return opTimeout;
     }
 
-    public MemcacheConfig setOpTimeout(int opTimeout) {
+    public T setOpTimeout(int opTimeout) {
         this.opTimeout = opTimeout;
-        return this;
+        return (T)this;
     }
 
     @Override
