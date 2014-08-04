@@ -54,7 +54,7 @@ public class GrizzlyMemcacheManager {
                 throw new IllegalArgumentException("No zookeeper and memcache servers configuration");
             }
             Set<SocketAddress> memcachedServers = new HashSet<SocketAddress>();
-            for (String address : memcacheConfig.getZkHosts().split(",")) {
+            for (String address : memcacheConfig.getServers().split(",")) {
                 try {
                     String[] hostPort = (address + ":").split(":");
                     memcachedServers.add(new InetSocketAddress(hostPort[0], Integer.parseInt(hostPort[1])));

@@ -6,7 +6,7 @@ package org.mds.hprocessor.memcache.utils;
 public class GrizzlyMemcacheConfig extends MemcacheConfig<GrizzlyMemcacheConfig> {
     private String cacheName = "Default";
     private String zkConfName = "cache-manager";
-    private String zkHosts;
+    private String zkHosts="";
     private String zkRoot;
 
     public GrizzlyMemcacheConfig() {
