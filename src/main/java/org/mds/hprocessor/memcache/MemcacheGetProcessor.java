@@ -153,6 +153,8 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
 
         @Override
         public void process(CallbackObject object) {
+            if (log.isDebugEnabled())
+                log.debug("Get callback, result size:" + object.objects.size());
             for (GetObject getObject : object.objects) {
                 Object value = null;
                 try {
@@ -201,6 +203,8 @@ public class MemcacheGetProcessor extends MemcacheProcessor {
             }
             Map<String, Object> result = null;
             try {
+                if (log.isDebugEnabled())
+                    log.debug("Get keys count:" + keys.size());
                 result = this.memcacheGetter.getMulti(keys);
             } catch (Exception ex) {
                 log.warn("Exception in getMulti from memcache:" + ex);
