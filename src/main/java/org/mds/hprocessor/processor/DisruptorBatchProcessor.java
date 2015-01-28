@@ -39,6 +39,7 @@ public class DisruptorBatchProcessor<T> extends AbstractDisruptorProcessor<T> {
     private static class ProcessorEventHandler<T0> implements EventHandler<HandlerEvent<T0>> {
         private ExecutorService handlerExecutor;
         ProcessorHandler<T0>[] processorHandlers;
+        ProcessorHandler<T0> singleHandler;
         List<Future> tasks = new CopyOnWriteArrayList<>();
 
         public ProcessorEventHandler(ProcessorHandler<T0>[] processorHandlers) {
@@ -46,8 +47,16 @@ public class DisruptorBatchProcessor<T> extends AbstractDisruptorProcessor<T> {
             this.handlerExecutor = Executors.newFixedThreadPool(processorHandlers.length);
         }
 
+        public ProcessorEventHandler(ProcessorHandler<T0> processorHandler) {
+            this.singleHandler = processorHandler;
+        }
+
         @Override
         public void onEvent(final HandlerEvent<T0> event, long sequence, boolean endOfBatch) throws Exception {
+            if (this.singleHandler != null) {
+                this.singleHandler.process(event.event);
+                return;
+            }
             tasks.add(this.handlerExecutor.submit(new Runnable() {
                 @Override
                 public void run() {
@@ -107,7 +116,8 @@ public class DisruptorBatchProcessor<T> extends AbstractDisruptorProcessor<T> {
 
             @Override
             public void run() {
-                processorHandlers[random.nextInt(processorHandlers.length)].process(this.events);
+                processorHandlers[random.nextInt(processorHandlers.length)].
+                        process(this.events);
             }
         }
     }
@@ -118,8 +128,14 @@ public class DisruptorBatchProcessor<T> extends AbstractDisruptorProcessor<T> {
 
     public static class Builder<T> extends BatchBuilder<T, Builder<T>, DisruptorBatchProcessor<T>> {
         private List<EventHandler<T>> handlers = new ArrayList();
+        private EventHandler<T> singleHandler;
 
         private Builder() {
+        }
+
+        public Builder<T> setSingleHandler(ProcessorHandler<T> handler) {
+            this.singleHandler = new ProcessorEventHandler(handler);
+            return this;
         }
 
         public Builder<T> addNext(int workerCount, ProcessorHandler<T> handler) {
@@ -149,6 +165,10 @@ public class DisruptorBatchProcessor<T> extends AbstractDisruptorProcessor<T> {
             DisruptorBatchProcessor<T> disruptorProcessor = new DisruptorBatchProcessor(this.bufferSize);
 
             SequenceBarrier barrier = disruptorProcessor.ringBuffer.newBarrier();
+            if (this.singleHandler != null) {
+                this.handlers.clear();
+                this.handlers.add(this.singleHandler);
+            }
             BatchEventProcessor<HandlerEvent<T>> eventProcessor = null;
             for (EventHandler handler : this.handlers) {
                 eventProcessor = new BatchEventProcessor(disruptorProcessor.ringBuffer,
