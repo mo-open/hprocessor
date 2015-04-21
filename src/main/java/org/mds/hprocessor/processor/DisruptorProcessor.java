@@ -49,7 +49,7 @@ public class DisruptorProcessor<T> extends AbstractDisruptorProcessor<T> {
     }
 
     public static <T> Builder<T> newBuilder() {
-        return new Builder<T>();
+        return new <T>Builder<T>();
     }
 
     public static class Builder<T> extends SingleBuilder<T, Builder<T>, DisruptorProcessor<T>> {
@@ -59,12 +59,12 @@ public class DisruptorProcessor<T> extends AbstractDisruptorProcessor<T> {
         private Builder() {
         }
 
-        public Builder addNext(int workerCount, ProcessorHandler<T> handler) {
+        public Builder<T> addNext(int workerCount, ProcessorHandler<T> handler) {
             this.workers.add(new ProcessorWorker(workerCount, handler));
             return this;
         }
 
-        public Builder addNext(ProcessorHandler<T>[] handlers) {
+        public Builder<T> addNext(ProcessorHandler<T>[] handlers) {
             this.workers.add(new ProcessorWorker(handlers));
             return this;
         }
